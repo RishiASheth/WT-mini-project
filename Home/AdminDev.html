@@ -1,0 +1,19 @@
+<html>
+    <head>
+        <title>AdminDev</title>
+        <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+        <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+        <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    </head>
+
+    <body>
+        <button onclick="resetCount()">Reset Count</button>
+        <script type="text/babel">
+            function resetCount(){
+                localStorage.setItem('visitorCount',0);
+                alert("visitor count has been reset");
+            }
+        </script>
+    </body>
+
+</html>

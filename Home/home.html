@@ -1,0 +1,81 @@
+<html>
+    <head>
+        <title>Home</title>
+        <link rel="stylesheet" type="text/css" href="style.css">
+        <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+        <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+        <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    </head>
+    <body>
+        <nav class="nav-bar">
+            <div class="logo">Logo</div>
+            <ul>
+                <li><a href="home.html">Home</a></li>
+                <li><a href="#">About</a></li>
+                <li><a href="#">Contact</a></li>
+            </ul>
+            <button id="logi" onclick="login.html">Login</button>
+        </nav>
+        
+        <video autoplay muted loop id="myVideo">
+            <source src="jogi.mp4" type="video/mp4">
+        </video>
+        <br/>
+        <div id="intro">
+            <h1>Welcome to [ Website Name] – Your Ultimate Live Streaming Destination!</h1>
+            <p>Dive into the world of real-time entertainment, where live events, shows, and exclusive content come to life right before your eyes. Whether you're here to watch thrilling sports matches, captivating performances, or personal streams from your favorite creators, we provide an immersive streaming experience with seamless HD quality. Join our vibrant community, interact with creators, and never miss a moment. With [ Website Name], the world’s biggest moments are just a click away – live and in the moment.</p>
+        </div>
+        <br/>
+        <br/>
+        <nav class="bottom-nav">
+            <div id="container"></div>
+        </nav>
+        <script type="text/babel">
+            class Home extends React.Component {
+                constructor(props) {
+                    super(props);
+                    this.state = {
+                        visitors: this.setCount()
+                    };
+                }
+
+                setCount() {
+                    let count = localStorage.getItem('visitorCount');
+                    if (count === null) {
+                        count = 1;
+                    } else {
+                        count = parseInt(count) + 1;
+                    }
+                    localStorage.setItem('visitorCount', count);
+                    return count;
+                }
+
+                resetCount() {
+                    localStorage.setItem('visitorCount', 0);
+                    this.setState({ visitors: 1 });
+                }
+
+                componentDidMount() {
+                    window.addEventListener('storage', (event) => {
+                        if (event.key === 'visitorCount') {
+                            this.setState({ visitors: localStorage.getItem('visitorCount') });
+                        }
+                    });
+                }
+
+                render() {
+                    return (
+                        <div>
+                            <h2>The Number of visitors is </h2><h2 id="cnt">{this.state.visitors}</h2>
+                        </div>
+                    );
+                }
+            }
+                
+            const root = ReactDOM.createRoot(document.getElementById('container'));
+            root.render(<Home/>);
+        </script>
+        <script src="index.js"></script>
+    </body>
+
+</html>
