@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screen and Camera Sharing Streamer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #333;
+    }
+
+    h1 {
+      margin-bottom: 0.5em;
+    }
+
+    p {
+      font-size: 1.1em;
+    }
+
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #ddd;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .comments {
+      margin-top: 20px;
+      width: 80%;
+      max-width: 500px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+      padding: 15px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .comments h2 {
+      margin-top: 0;
+    }
+
+    .comments ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .comments ul li {
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .comments ul li:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Screen and Camera Sharing Streamer</h1>
+  <p>Status: <span id="status">Connecting...</span></p>
+  <div>
+    <button id="startScreenShare">Start Screen Sharing</button>
+    <button id="startCameraShare">Start Camera Sharing</button>
+    <button id="stopSharing" disabled>Stop Sharing</button>
+  </div>
+  
+  <div class="comments">
+    <h2>Comments</h2>
+    <ul id="commentsList">
+      <!-- Comments will appear here -->
+    </ul>
+  </div>
+
+  <script>
+    const status = document.getElementById('status');
+    const startScreenShareBtn = document.getElementById('startScreenShare');
+    const startCameraShareBtn = document.getElementById('startCameraShare');
+    const stopSharingBtn = document.getElementById('stopSharing');
+    const commentsList = document.getElementById('commentsList');
+    const socket = new WebSocket('wss://liveserver-5qol.onrender.com');
+
+    let mediaRecorder = null;
+
+    // WebSocket Events
+    socket.onopen = () => {
+      status.textContent = 'Connected to server as streamer';
+      socket.send(JSON.stringify({ type: 'streamer' }));
+    };
+
+    socket.onclose = () => {
+      status.textContent = 'Disconnected from server';
+    };
+
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === 'comment') {
+        const li = document.createElement('li');
+        li.textContent = message.content;
+        commentsList.appendChild(li);
+      }
+    };
+
+    // Function to start sharing media stream
+    async function startSharing(mediaStream, label) {
+      status.textContent = `${label} started...`;
+
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      mediaRecorder = new MediaRecorder(mediaStream, {
+        mimeType: 'video/webm; codecs=vp8',
+      });
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          socket.send(event.data);
+        }
+      };
+
+      mediaRecorder.start(100); // Send chunks every 100ms
+
+      // Stop streaming when the media track ends
+      videoTrack.onended = () => {
+        stopSharing();
+      };
+
+      stopSharingBtn.disabled = false;
+      stopSharingBtn.onclick = () => stopSharing(mediaStream);
+    }
+
+    function stopSharing(mediaStream) {
+      if (mediaRecorder) {
+        mediaRecorder.stop();
+        mediaRecorder = null;
+      }
+
+      if (mediaStream) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+      }
+
+      stopSharingBtn.disabled = true;
+      status.textContent = 'Sharing stopped';
+    }
+
+    // Start screen sharing
+    startScreenShareBtn.onclick = async () => {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false,
+        });
+        startSharing(screenStream, 'Screen sharing');
+      } catch (err) {
+        console.error('Error starting screen sharing:', err);
+        status.textContent = 'Failed to start screen sharing';
+      }
+    };
+
+    // Start camera sharing
+    startCameraShareBtn.onclick = async () => {
+      try {
+        const cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false, // Set to true if audio is needed
+        });
+        startSharing(cameraStream, 'Camera sharing');
+      } catch (err) {
+        console.error('Error starting camera sharing:', err);
+        status.textContent = 'Failed to start camera sharing';
+      }
+    };
+  </script>
+</body>
+</html>
