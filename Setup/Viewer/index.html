@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Viewer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #333;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    p {
+      font-size: 1.1em;
+    }
+
+    #video {
+      margin: 20px 0;
+      max-width: 100%;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .comments {
+      margin-top: 20px;
+      width: 80%;
+      max-width: 500px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+      padding: 15px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .comments h2 {
+      margin-top: 0;
+    }
+
+    .comments ul {
+      list-style: none;
+      padding: 0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .comments ul li {
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .comments ul li:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Viewer</h1>
+  <p>Status: <span id="status">Connecting...</span></p>
+  <video id="video" autoplay controls></video>
+  
+  <div class="comments">
+    <h2>Comments</h2>
+    <ul id="commentsList">
+      <!-- Comments will appear here -->
+    </ul>
+  </div>
+
+  <script>
+    const status = document.getElementById('status');
+    const videoElement = document.getElementById('video');
+    const commentsList = document.getElementById('commentsList');
+    const socket = new WebSocket('wss://liveserver-5qol.onrender.com'); // Secure WebSocket URL
+    const mediaSource = new MediaSource();
+    videoElement.src = URL.createObjectURL(mediaSource);
+
+    socket.onopen = () => {
+      status.textContent = 'Connected to server as viewer';
+      socket.send(JSON.stringify({ type: 'viewer' }));
+    };
+
+    mediaSource.addEventListener('sourceopen', () => {
+      const sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs=vp8');
+
+      socket.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          const message = JSON.parse(event.data);
+
+          if (message.type === 'no-stream') {
+            status.textContent = 'No active stream';
+          } else if (message.type === 'end-stream') {
+            status.textContent = 'Stream ended';
+            mediaSource.endOfStream();
+          } else if (message.type === 'comment') {
+            // Handle comments
+            const li = document.createElement('li');
+            li.textContent = message.content;
+            commentsList.appendChild(li);
+            commentsList.scrollTop = commentsList.scrollHeight; // Auto-scroll to the latest comment
+          }
+        } else if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const arrayBuffer = reader.result;
+            sourceBuffer.appendBuffer(new Uint8Array(arrayBuffer));
+          };
+          reader.readAsArrayBuffer(event.data);
+        }
+      };
+    });
+
+    socket.onclose = () => {
+      status.textContent = 'Disconnected from server';
+    };
+  </script>
+</body>
+</html>
