@@ -3,91 +3,211 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Viewer</title>
+  <title>STREAMVIBE - Live Stream Viewer</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f9;
+    :root {
+      --primary-color: #6c5ce7;
+      --secondary-color: #a29bfe;
+      --background-color: #2d3436;
+      --card-background: #353b48;
+      --text-color: #dfe6e9;
+    }
+
+    * {
       margin: 0;
       padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
       min-height: 100vh;
-      color: #333;
+      padding: 2rem;
     }
 
-    h1 {
-      margin-top: 20px;
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
     }
 
-    p {
-      font-size: 1.1em;
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    .logo span {
+      color: var(--secondary-color);
+    }
+
+    .status {
+      background: var(--card-background);
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #e74c3c;
+    }
+
+    .status-indicator.connected {
+      background-color: #2ecc71;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 2rem;
+    }
+
+    .video-container {
+      background: var(--card-background);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
 
     #video {
-      margin: 20px 0;
-      max-width: 100%;
-      border: 2px solid #ddd;
-      border-radius: 5px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-height: 70vh;
+      background: #000;
     }
 
-    .comments {
-      margin-top: 20px;
-      width: 80%;
-      max-width: 500px;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      background-color: #fff;
-      padding: 15px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    .comments-section {
+      background: var(--card-background);
+      border-radius: 10px;
+      padding: 1.5rem;
+      height: 70vh;
+      display: flex;
+      flex-direction: column;
     }
 
-    .comments h2 {
-      margin-top: 0;
+    .comments-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .comments ul {
+    .comments-header i {
+      color: var(--primary-color);
+    }
+
+    #commentsList {
       list-style: none;
-      padding: 0;
-      max-height: 150px;
       overflow-y: auto;
+      flex-grow: 1;
+      padding-right: 0.5rem;
     }
 
-    .comments ul li {
-      padding: 8px;
-      border-bottom: 1px solid #ddd;
+    #commentsList::-webkit-scrollbar {
+      width: 6px;
     }
 
-    .comments ul li:last-child {
-      border-bottom: none;
+    #commentsList::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+
+    #commentsList::-webkit-scrollbar-thumb {
+      background: var(--primary-color);
+      border-radius: 3px;
+    }
+
+    .comment {
+      background: rgba(255, 255, 255, 0.05);
+      margin-bottom: 0.5rem;
+      padding: 1rem;
+      border-radius: 5px;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+
+      .container {
+        padding: 1rem;
+      }
+
+      .header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Viewer</h1>
-  <p>Status: <span id="status">Connecting...</span></p>
-  <video id="video" autoplay controls></video>
-  
-  <div class="comments">
-    <h2>Comments</h2>
-    <ul id="commentsList">
-      <!-- Comments will appear here -->
-    </ul>
+  <div class="container">
+    <div class="header">
+      <div class="logo">STREAM<span>VIBE</span></div>
+      <div class="status">
+        <div id="statusIndicator" class="status-indicator"></div>
+        <span id="status">Connecting...</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="video-container">
+        <video id="video" autoplay controls></video>
+      </div>
+      
+      <div class="comments-section">
+        <div class="comments-header">
+          <i class="fas fa-comments"></i>
+          <h2>Live Chat</h2>
+        </div>
+        <ul id="commentsList">
+          <!-- Comments will appear here -->
+        </ul>
+      </div>
+    </div>
   </div>
 
   <script>
     const status = document.getElementById('status');
+    const statusIndicator = document.getElementById('statusIndicator');
     const videoElement = document.getElementById('video');
     const commentsList = document.getElementById('commentsList');
-    const socket = new WebSocket('wss://liveserver-5qol.onrender.com'); // Secure WebSocket URL
+    const socket = new WebSocket('wss://liveserver-5qol.onrender.com');
     const mediaSource = new MediaSource();
     videoElement.src = URL.createObjectURL(mediaSource);
 
     socket.onopen = () => {
       status.textContent = 'Connected to server as viewer';
+      statusIndicator.classList.add('connected');
       socket.send(JSON.stringify({ type: 'viewer' }));
     };
 
@@ -100,15 +220,17 @@
 
           if (message.type === 'no-stream') {
             status.textContent = 'No active stream';
+            statusIndicator.classList.remove('connected');
           } else if (message.type === 'end-stream') {
             status.textContent = 'Stream ended';
+            statusIndicator.classList.remove('connected');
             mediaSource.endOfStream();
           } else if (message.type === 'comment') {
-            // Handle comments
             const li = document.createElement('li');
+            li.className = 'comment';
             li.textContent = message.content;
             commentsList.appendChild(li);
-            commentsList.scrollTop = commentsList.scrollHeight; // Auto-scroll to the latest comment
+            commentsList.scrollTop = commentsList.scrollHeight;
           }
         } else if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
           const reader = new FileReader();
@@ -123,6 +245,7 @@
 
     socket.onclose = () => {
       status.textContent = 'Disconnected from server';
+      statusIndicator.classList.remove('connected');
     };
   </script>
 </body>
