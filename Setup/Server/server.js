@@ -12,20 +12,27 @@ wss.on('connection', (ws) => {
   console.log('New client connected');
 
   ws.on('message', (message) => {
-    // Check if the message is JSON or binary data
     try {
       const data = JSON.parse(message);
 
       // Identify client type (streamer or viewer)
       if (data.type === 'streamer') {
         console.log('Streamer connected');
+        if (clients.streamers) {
+          // Notify the old streamer of being disconnected
+          clients.streamers.close();
+        }
         clients.streamers = ws;
 
         ws.on('close', () => {
           console.log('Streamer disconnected');
           clients.streamers = null;
           // Notify all viewers that the stream ended
-          clients.viewers.forEach((viewer) => viewer.send(JSON.stringify({ type: 'end-stream' })));
+          clients.viewers.forEach((viewer) => {
+            if (viewer.readyState === WebSocket.OPEN) {
+              viewer.send(JSON.stringify({ type: 'end-stream' }));
+            }
+          });
         });
       } else if (data.type === 'viewer') {
         console.log('Viewer connected');
@@ -46,11 +53,23 @@ wss.on('connection', (ws) => {
       if (ws === clients.streamers) {
         clients.viewers.forEach((viewer) => {
           if (viewer.readyState === WebSocket.OPEN) {
-            viewer.send(message); // Relay screen-sharing data
+            try {
+              viewer.send(message); // Relay screen-sharing data
+            } catch (error) {
+              console.error('Error sending binary data to viewer:', error);
+            }
           }
         });
       }
     }
+  });
+
+  ws.on('close', () => {
+    console.log('Client disconnected');
+  });
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
   });
 });
 
