@@ -1,14 +1,12 @@
 const WebSocket = require('ws');
 
-const wss = new WebSocket.Server({ port: 8080 });
-
-// Store clients
+// Store clients: one streamer, multiple viewers
 const clients = {
-  streamer: null,  // Single active streamer
-  viewers: new Set() // Multiple viewers
+  streamer: null,  // Only one active streamer
+  viewers: new Set()  // Set to store all viewers
 };
 
-// Send a JSON message to a client
+// Function to send JSON data to a specific client
 function sendJSON(client, data) {
   if (client.readyState === WebSocket.OPEN) {
     try {
@@ -19,18 +17,20 @@ function sendJSON(client, data) {
   }
 }
 
-// Broadcast to all viewers
+// Function to broadcast a message to all viewers
 function broadcastToViewers(data) {
   clients.viewers.forEach((viewer) => {
     if (viewer.readyState === WebSocket.OPEN) {
       try {
-        viewer.send(data); // Binary or string
+        viewer.send(data);  // Send binary or JSON data
       } catch (error) {
         console.error('Error broadcasting to viewer:', error);
       }
     }
   });
 }
+
+const wss = new WebSocket.Server({ port: 8080 });
 
 wss.on('connection', (ws) => {
   console.log('New client connected.');
@@ -43,8 +43,7 @@ wss.on('connection', (ws) => {
       if (data.type === 'streamer') {
         // Handle streamer connection
         if (clients.streamer) {
-          // Disconnect existing streamer
-          console.log('Existing streamer replaced.');
+          // Notify viewers that a new streamer is connecting, replacing the previous one
           sendJSON(clients.streamer, { type: 'disconnect', reason: 'New streamer connected' });
           clients.streamer.close();
         }
@@ -56,7 +55,7 @@ wss.on('connection', (ws) => {
         ws.on('close', () => {
           console.log('Streamer disconnected.');
           clients.streamer = null;
-          // Notify viewers the stream ended
+          // Notify all viewers that the stream has ended
           broadcastToViewers(JSON.stringify({ type: 'end-stream' }));
         });
 
@@ -69,11 +68,12 @@ wss.on('connection', (ws) => {
         clients.viewers.add(ws);
         console.log('Viewer connected.');
 
-        // Notify viewer if no streamer is active
+        // Notify viewer if there is no active streamer
         if (!clients.streamer) {
           sendJSON(ws, { type: 'no-stream' });
         }
 
+        // Viewer disconnection handling
         ws.on('close', () => {
           console.log('Viewer disconnected.');
           clients.viewers.delete(ws);
@@ -81,19 +81,19 @@ wss.on('connection', (ws) => {
 
         ws.on('error', (error) => {
           console.error('Viewer error:', error);
-          clients.viewers.delete(ws); // Cleanup
+          clients.viewers.delete(ws); // Clean up if there’s an error
         });
       } else {
         console.error('Unknown client type:', data.type);
         sendJSON(ws, { type: 'error', message: 'Unknown client type' });
       }
     } catch (e) {
-      // Handle binary data or invalid JSON
+      // Handle binary data from the streamer
       if (ws === clients.streamer) {
-        // Relay binary data from streamer to viewers
+        // Relay binary data to all viewers
         broadcastToViewers(message);
       } else {
-        console.error('Received invalid JSON or unsupported message type:', e);
+        console.error('Invalid JSON message received:', e);
         sendJSON(ws, { type: 'error', message: 'Invalid data format' });
       }
     }
@@ -104,7 +104,7 @@ wss.on('connection', (ws) => {
     if (ws === clients.streamer) {
       console.log('Streamer disconnected.');
       clients.streamer = null;
-      // Notify viewers the stream ended
+      // Notify viewers that the stream has ended
       broadcastToViewers(JSON.stringify({ type: 'end-stream' }));
     } else if (clients.viewers.has(ws)) {
       clients.viewers.delete(ws);
