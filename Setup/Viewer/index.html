@@ -13,21 +13,24 @@
   <script>
     const status = document.getElementById('status');
     const videoElement = document.getElementById('video');
-    const socket = new WebSocket('wss://liveserver-5qol.onrender.com'); // Updated to secure WebSocket URL
+    const socket = new WebSocket('wss://liveserver-5qol.onrender.com'); // Secure WebSocket URL
     const mediaSource = new MediaSource();
     videoElement.src = URL.createObjectURL(mediaSource);
 
     let sourceBuffer;
-    
+
     socket.onopen = () => {
       status.textContent = 'Connected to server as viewer';
       socket.send(JSON.stringify({ type: 'viewer' }));
     };
 
+    // Handle MediaSource setup
     mediaSource.addEventListener('sourceopen', () => {
+      console.log('MediaSource opened');
       sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs=vp8');
       
       socket.onmessage = (event) => {
+        // Handle JSON messages
         if (typeof event.data === 'string') {
           const message = JSON.parse(event.data);
 
@@ -38,12 +41,15 @@
             mediaSource.endOfStream();
           }
         } else if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+          // Handle binary stream data (video chunks)
           const reader = new FileReader();
           reader.onload = () => {
             const arrayBuffer = reader.result;
-            // Check if the sourceBuffer is ready before appending data
+            // Check if sourceBuffer is ready to append data
             if (sourceBuffer && !sourceBuffer.updating) {
               sourceBuffer.appendBuffer(new Uint8Array(arrayBuffer));
+            } else {
+              console.log('SourceBuffer is not ready yet.');
             }
           };
           reader.readAsArrayBuffer(event.data);
@@ -53,6 +59,10 @@
 
     socket.onclose = () => {
       status.textContent = 'Disconnected from server';
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
     };
   </script>
 </body>
