@@ -1,71 +1,114 @@
 const WebSocket = require('ws');
 
-// Store connected clients
-const clients = {
-  streamers: null, // Only one active streamer
-  viewers: new Set()
-};
-
 const wss = new WebSocket.Server({ port: 8080 });
 
+// Store clients
+const clients = {
+  streamer: null,  // Single active streamer
+  viewers: new Set() // Multiple viewers
+};
+
+// Send a JSON message to a client
+function sendJSON(client, data) {
+  if (client.readyState === WebSocket.OPEN) {
+    try {
+      client.send(JSON.stringify(data));
+    } catch (error) {
+      console.error('Error sending JSON message:', error);
+    }
+  }
+}
+
+// Broadcast to all viewers
+function broadcastToViewers(data) {
+  clients.viewers.forEach((viewer) => {
+    if (viewer.readyState === WebSocket.OPEN) {
+      try {
+        viewer.send(data); // Binary or string
+      } catch (error) {
+        console.error('Error broadcasting to viewer:', error);
+      }
+    }
+  });
+}
+
 wss.on('connection', (ws) => {
-  console.log('New client connected');
+  console.log('New client connected.');
 
   ws.on('message', (message) => {
     try {
+      // Handle JSON messages
       const data = JSON.parse(message);
 
-      // Identify client type (streamer or viewer)
       if (data.type === 'streamer') {
-        console.log('Streamer connected');
-        if (clients.streamers) {
-          // Notify the old streamer of being disconnected
-          clients.streamers.close();
+        // Handle streamer connection
+        if (clients.streamer) {
+          // Disconnect existing streamer
+          console.log('Existing streamer replaced.');
+          sendJSON(clients.streamer, { type: 'disconnect', reason: 'New streamer connected' });
+          clients.streamer.close();
         }
-        clients.streamers = ws;
 
+        clients.streamer = ws;
+        console.log('Streamer connected.');
+
+        // Streamer disconnection handling
         ws.on('close', () => {
-          console.log('Streamer disconnected');
-          clients.streamers = null;
-          // Notify all viewers that the stream ended
-          clients.viewers.forEach((viewer) => {
-            if (viewer.readyState === WebSocket.OPEN) {
-              viewer.send(JSON.stringify({ type: 'end-stream' }));
-            }
-          });
+          console.log('Streamer disconnected.');
+          clients.streamer = null;
+          // Notify viewers the stream ended
+          broadcastToViewers(JSON.stringify({ type: 'end-stream' }));
         });
+
+        ws.on('error', (error) => {
+          console.error('Streamer error:', error);
+        });
+
       } else if (data.type === 'viewer') {
-        console.log('Viewer connected');
+        // Handle viewer connection
         clients.viewers.add(ws);
+        console.log('Viewer connected.');
+
+        // Notify viewer if no streamer is active
+        if (!clients.streamer) {
+          sendJSON(ws, { type: 'no-stream' });
+        }
 
         ws.on('close', () => {
-          console.log('Viewer disconnected');
+          console.log('Viewer disconnected.');
           clients.viewers.delete(ws);
         });
 
-        // Notify the viewer if there's no active streamer
-        if (!clients.streamers) {
-          ws.send(JSON.stringify({ type: 'no-stream' }));
-        }
+        ws.on('error', (error) => {
+          console.error('Viewer error:', error);
+          clients.viewers.delete(ws); // Cleanup
+        });
+      } else {
+        console.error('Unknown client type:', data.type);
+        sendJSON(ws, { type: 'error', message: 'Unknown client type' });
       }
     } catch (e) {
-      // Relay binary data from streamer to viewers
-      if (ws === clients.streamers) {
-        clients.viewers.forEach((viewer) => {
-          if (viewer.readyState === WebSocket.OPEN) {
-            try {
-              viewer.send(message); // Relay screen-sharing data
-            } catch (error) {
-              console.error('Error sending binary data to viewer:', error);
-            }
-          }
-        });
+      // Handle binary data or invalid JSON
+      if (ws === clients.streamer) {
+        // Relay binary data from streamer to viewers
+        broadcastToViewers(message);
+      } else {
+        console.error('Received invalid JSON or unsupported message type:', e);
+        sendJSON(ws, { type: 'error', message: 'Invalid data format' });
       }
     }
   });
 
   ws.on('close', () => {
-    console.log('Client disconnected');
+    console.log('Client disconnected.');
+    if (ws === clients.streamer) {
+      console.log('Streamer disconnected.');
+      clients.streamer = null;
+      // Notify viewers the stream ended
+      broadcastToViewers(JSON.stringify({ type: 'end-stream' }));
+    } else if (clients.viewers.has(ws)) {
+      clients.viewers.delete(ws);
+    }
   });
 
   ws.on('error', (error) => {
