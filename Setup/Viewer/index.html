@@ -17,14 +17,16 @@
     const mediaSource = new MediaSource();
     videoElement.src = URL.createObjectURL(mediaSource);
 
+    let sourceBuffer;
+    
     socket.onopen = () => {
       status.textContent = 'Connected to server as viewer';
       socket.send(JSON.stringify({ type: 'viewer' }));
     };
 
     mediaSource.addEventListener('sourceopen', () => {
-      const sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs=vp8');
-
+      sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs=vp8');
+      
       socket.onmessage = (event) => {
         if (typeof event.data === 'string') {
           const message = JSON.parse(event.data);
@@ -39,7 +41,10 @@
           const reader = new FileReader();
           reader.onload = () => {
             const arrayBuffer = reader.result;
-            sourceBuffer.appendBuffer(new Uint8Array(arrayBuffer));
+            // Check if the sourceBuffer is ready before appending data
+            if (sourceBuffer && !sourceBuffer.updating) {
+              sourceBuffer.appendBuffer(new Uint8Array(arrayBuffer));
+            }
           };
           reader.readAsArrayBuffer(event.data);
         }
